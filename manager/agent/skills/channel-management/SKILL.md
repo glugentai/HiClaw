@@ -139,6 +139,41 @@ The daily keepalive (HEARTBEAT.md step 7) calls `/opt/hiclaw/scripts/notify-admi
 
 The script reads `primary-channel.json`, calls `mark-notified`, then triggers an openclaw hook session that generates and delivers the keepalive message to the admin's primary channel.
 
+## Cross-Channel Escalation
+
+When blocked on an admin decision while working in a Matrix room:
+
+### When to Use
+- Blocked on irreversible action needing explicit approval
+- Worker/project is stalled and needs admin judgment call
+- Cannot wait for next heartbeat or scheduled DM check-in
+
+### How to Call
+
+```bash
+bash /opt/hiclaw/scripts/escalate-to-admin.sh \
+  --source-session "agent:main:matrix:channel:!roomId:domain" \
+  --question "Describe the decision clearly"
+```
+
+- **Exit 0**: hook dispatched; wait for `[ADMIN_REPLY]` injection to continue
+- **Exit 1**: no primary channel configured; @mention admin in current Matrix room instead
+
+### Reply Handling
+
+When `[ADMIN_REPLY] <decision>` appears in the session:
+1. Extract the decision text after `[ADMIN_REPLY]`
+2. Continue the blocked workflow
+3. @mention relevant workers in the room with the outcome
+
+### How It Works
+
+The script POSTs to `/hooks/agent` with `sessionKey` set to `agent:main:{channel}:dm:{sender_id}` (derived from `primary-channel.json`). This runs the hook inside the admin's existing DM session. The admin's reply continues that session naturally, and the agent calls `sessions_send` to inject `[ADMIN_REPLY]` back into the originating Matrix session.
+
+### Fallback
+
+If `primary-channel.json` is missing, `confirmed: false`, or channel is `matrix`, the script exits 1. Fall back to @mentioning admin in the current Matrix session.
+
 ## Troubleshooting
 
 **通知发送到错误目标**：管理员反映收不到通知。检查 `primary-channel.json` 的 `to` 字段是否正确，向管理员确认其频道 ID 后重新写入。

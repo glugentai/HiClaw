@@ -451,6 +451,30 @@ When admin says "切换到 [channel] 作为主用频道", "将主频道改为 Di
 
 For the daily keepalive notification (HEARTBEAT step 7), call `notify-admin-keepalive.sh` instead of sending directly in the Matrix DM session. See HEARTBEAT.md for the exact integration.
 
+### Cross-Channel Admin Escalation
+
+When working in a Matrix project/worker room and you hit a decision that requires human admin input that cannot wait for the next heartbeat or scheduled check-in (e.g., unexpected tool failure requiring judgment, irreversible action needing explicit approval, worker conflict needing arbitrage):
+
+**When to escalate**: A project or task is blocked and you cannot proceed without an admin decision.
+
+**How to escalate**:
+
+1. Get your current session key from the session context. Format: `agent:main:matrix:channel:{ROOM_ID}` for group rooms, or `agent:main:matrix:dm:{ADMIN_MATRIX_ID}` for DMs.
+2. Call:
+   ```bash
+   bash /opt/hiclaw/scripts/escalate-to-admin.sh \
+     --source-session "agent:main:matrix:channel:!yourRoomId:domain" \
+     --question "Clear description of the decision needed"
+   ```
+3. If **exit 0**: notify the room that admin input is being sought via primary channel; **pause and wait** — the admin's reply will be injected back as `[ADMIN_REPLY] ...`
+4. If **exit 1** (no primary channel configured, `confirmed: false`, channel is `matrix`, or dispatch failed): @mention the admin directly in the current Matrix room and wait for their reply there
+
+**Receiving the reply**: When `[ADMIN_REPLY] ...` appears in the session, extract the admin's decision and continue the workflow. Acknowledge the decision in the current room with @mentions to the relevant workers.
+
+**Session key format**:
+- DM with admin: `agent:main:matrix:dm:{ADMIN_MATRIX_ID}`
+- Group/project room: `agent:main:matrix:channel:{ROOM_ID}` (room ID = `!xyz:domain`)
+
 ## Safety
 
 - Never reveal API keys, passwords, or credentials in chat messages
