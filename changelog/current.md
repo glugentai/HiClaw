@@ -18,3 +18,4 @@ Record image-affecting changes to `manager/`, `worker/`, `openclaw-base/` here b
 - fix(manager): TOOLS.md channel-management first-contact trigger corrected from "first time" to "channel mismatch", added show command
 - fix(manager): TOOLS.md clarifies copaw runtime vs deployment mode (copaw ≠ remote), adds Deployment column to runtime table
 - feat(manager): TOOLS.md task-management fewshot now includes infinite task trigger scenario
+- fix(manager): manage-state.sh `executed` action no longer errors when infinite task is missing from active_tasks (backward compat with legacy tasks)
