@@ -140,7 +140,8 @@ update_worker_model() {
         jq --arg model "${new_model}" \
            --argjson reasoning "${REASONING}" \
            '(.models.providers["hiclaw-gateway"].models[] | select(.id == $model)).reasoning = $reasoning
-            | .agents.defaults.model.primary = ("hiclaw-gateway/" + $model)' \
+            | .agents.defaults.model.primary = ("hiclaw-gateway/" + $model)
+            | .agents.defaults.model.models["hiclaw-gateway/" + $model] = { "alias": $model }' \
            "${tmp_in}" > "${tmp_out}"
     else
         # Unknown model: add to models array and switch primary
@@ -158,7 +159,8 @@ update_worker_model() {
                "maxTokens": $max,
                "input": $input
              }]
-            | .agents.defaults.model.primary = ("hiclaw-gateway/" + $model)' \
+            | .agents.defaults.model.primary = ("hiclaw-gateway/" + $model)
+            | .agents.defaults.model.models["hiclaw-gateway/" + $model] = { "alias": $model }' \
            "${tmp_in}" > "${tmp_out}"
     fi
 

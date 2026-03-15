@@ -32,3 +32,6 @@ Record image-affecting changes to `manager/`, `worker/`, `openclaw-base/` here b
 - feat(manager): model-switch and worker-model-switch scripts detect known vs unknown models via openclaw.json models array instead of overwriting models[0]
 - feat(manager): model-switch and worker-model-switch SKILL.md updated — Agent checks script output for RESTART_REQUIRED to decide whether to prompt user for restart
 - feat(manager): add known-models.json and upgrade-path merge — on Manager restart, existing openclaw.json (Manager + all Workers in MinIO) gets missing known models merged in, enabling hot-switch without restart for upgraded deployments
+- feat(copaw): add E2EE support — bridge `encryption` flag from openclaw.json, create matrix-nio client with crypto store when enabled, handle encrypted media events (RoomEncryptedImage/Audio/Video/File), auto-upload E2E keys, auto-query device keys on sync, ignore unverified devices for bot use case; set device_id from whoami for proper Olm key association
+- fix(copaw): upgrade matrix-nio dependency to `matrix-nio[e2e]` to include olm/peewee/atomicwrites for E2EE support
+- fix(manager): worker openclaw.json upgrade now adds missing `encryption` field for existing workers (previously only new workers got it from template)

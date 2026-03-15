@@ -312,6 +312,9 @@ if [ -f /root/manager-workspace/openclaw.json ]; then
         | ($existing | map(.id)) as $existing_ids
         | ($known_models | map(select(.id as $id | $existing_ids | index($id) | not))) as $new
         | .models.providers["hiclaw-gateway"].models = ($existing + $new)
+        # Rebuild model aliases from the full models list
+        | (.models.providers["hiclaw-gateway"].models | map({ ("hiclaw-gateway/" + .id): { "alias": .id } }) | add // {}) as $aliases
+        | .agents.defaults.model.models = ((.agents.defaults.model.models // {}) + $aliases)
         | .channels.matrix.accessToken = $token | .hooks.token = $key | .models.providers["hiclaw-gateway"].apiKey = $key
         | .agents.defaults.model.primary = ("hiclaw-gateway/" + $model)
         | .commands.restart = true
@@ -347,8 +350,8 @@ else
 fi
 
 # ============================================================
-# Upgrade Worker openclaw.json: merge known models into existing configs
-# Existing workers in MinIO may have old single-model configs.
+# Upgrade Worker openclaw.json: merge known models + E2EE flag into existing configs
+# Existing workers in MinIO may have old single-model configs or missing encryption field.
 # Merge template models so they can hot-switch without restart.
 # ============================================================
 REGISTRY_FILE="/root/manager-workspace/workers-registry.json"
@@ -364,17 +367,29 @@ if [ -f "${REGISTRY_FILE}" ]; then
             _tmp_in="/tmp/openclaw-${_wname}-models-upgrade-in.json"
             if mc cp "${_minio_path}" "${_tmp_in}" 2>/dev/null; then
                 _existing_count=$(jq '.models.providers["hiclaw-gateway"].models | length' "${_tmp_in}" 2>/dev/null || echo "0")
+                _has_encryption=$(jq '.channels.matrix | has("encryption")' "${_tmp_in}" 2>/dev/null || echo "false")
+                _needs_upgrade=false
                 if [ "${_existing_count}" -lt "${_known_count}" ]; then
+                    _needs_upgrade=true
+                fi
+                if [ "${_has_encryption}" != "true" ]; then
+                    _needs_upgrade=true
+                fi
+                if [ "${_needs_upgrade}" = "true" ]; then
                     _tmp_out="/tmp/openclaw-${_wname}-models-upgrade-out.json"
-                    jq --argjson known_models "${_KNOWN_MODELS}" '
+                    jq --argjson known_models "${_KNOWN_MODELS}" \
+                       --argjson e2ee "${MATRIX_E2EE_ENABLED}" '
                         .models.providers["hiclaw-gateway"].models as $existing
                         | ($existing | map(.id)) as $existing_ids
                         | ($known_models | map(select(.id as $id | $existing_ids | index($id) | not))) as $new
                         | .models.providers["hiclaw-gateway"].models = ($existing + $new)
+                        | (.models.providers["hiclaw-gateway"].models | map({ ("hiclaw-gateway/" + .id): { "alias": .id } }) | add // {}) as $aliases
+                        | .agents.defaults.model.models = ((.agents.defaults.model.models // {}) + $aliases)
+                        | .channels.matrix.encryption = $e2ee
                     ' "${_tmp_in}" > "${_tmp_out}" 2>/dev/null
                     if mc cp "${_tmp_out}" "${_minio_path}" 2>/dev/null; then
                         _new_count=$(jq '.models.providers["hiclaw-gateway"].models | length' "${_tmp_out}" 2>/dev/null)
-                        log "Worker ${_wname}: merged models (${_existing_count} -> ${_new_count})"
+                        log "Worker ${_wname}: upgraded openclaw.json (models: ${_existing_count} -> ${_new_count}, e2ee: ${MATRIX_E2EE_ENABLED})"
                     fi
                     rm -f "${_tmp_out}"
                 fi
